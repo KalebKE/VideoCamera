@@ -44,11 +44,6 @@ VTCompressionSessionRef compressionSession;
     
     if(self)
     {
-        if(encodeVideo)
-        {
-            [self initializeCompressionSession];
-        }
-        
         [self initializeDisplayLayer];
         [self initializeVideoCaptureSession];
     }
@@ -63,7 +58,7 @@ VTCompressionSessionRef compressionSession;
     {
         CFRetain(sampleBuffer);
         
-        //NSLog(@"PTS: %f", CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer)));
+        NSLog(@"PTS: %f", CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer)));
         
         CVPixelBufferRef pixelBuffer =CMSampleBufferGetImageBuffer(sampleBuffer);
         CMTime pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
@@ -186,6 +181,11 @@ VTCompressionSessionRef compressionSession;
 
 -(void) startCaputureSession
 {
+    if(encodeVideo)
+    {
+        [self initializeCompressionSession];
+    }
+    
     [captureSession startRunning];
     
     // You must call flush when resuming!
