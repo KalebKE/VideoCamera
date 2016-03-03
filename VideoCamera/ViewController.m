@@ -11,6 +11,8 @@
 
 @interface ViewController ()
 
+@property (nonatomic, retain) IBOutlet UIView *videoView;
+
 @end
 
 @implementation ViewController
@@ -24,7 +26,7 @@
 {
     [super viewDidAppear:animated];
     
-    [[VideoPlayer sharedManager] setView:self.view];
+    [[VideoPlayer sharedManager] setView:_videoView];
 }
 
 - (void)didReceiveMemoryWarning {

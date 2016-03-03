@@ -8,14 +8,22 @@
 
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
+#import <VideoToolbox/VideoToolbox.h>
 
 #import "VideoPlayer.h"
 
 @implementation VideoPlayer
 
+// Should video be encoded before displayed?
+bool encodeVideo = true;
+
+bool timebaseSet = false;
+
 AVCaptureDeviceInput *cameraDeviceInput;
 AVCaptureSession* captureSession;
 AVSampleBufferDisplayLayer* displayLayer;
+
+VTCompressionSessionRef compressionSession;
 
 + (id)sharedManager
 {
@@ -36,6 +44,11 @@ AVSampleBufferDisplayLayer* displayLayer;
     
     if(self)
     {
+        if(encodeVideo)
+        {
+            [self initializeCompressionSession];
+        }
+        
         [self initializeDisplayLayer];
         [self initializeVideoCaptureSession];
     }
@@ -45,11 +58,31 @@ AVSampleBufferDisplayLayer* displayLayer;
 
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection
 {
-    CFRetain(sampleBuffer);
-    
-    [displayLayer enqueueSampleBuffer:sampleBuffer];
-    
-    CFRelease(sampleBuffer);
+    // The video can either be encoded, decoded and then displayed... or just displayed with no encoding
+    if(encodeVideo)
+    {
+        CFRetain(sampleBuffer);
+        
+        //NSLog(@"PTS: %f", CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer)));
+        
+        CVPixelBufferRef pixelBuffer =CMSampleBufferGetImageBuffer(sampleBuffer);
+        CMTime pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
+        CMTime duration = CMSampleBufferGetDuration(sampleBuffer);
+        
+        VTEncodeInfoFlags flags;
+        
+        VTCompressionSessionEncodeFrame(compressionSession, pixelBuffer, pts, duration, NULL, NULL, &flags);
+        
+        CFRelease(sampleBuffer);
+    }
+    else
+    {
+        CFRetain(sampleBuffer);
+        
+        [displayLayer enqueueSampleBuffer:sampleBuffer];
+        
+        CFRelease(sampleBuffer);
+    }
 }
 
 
@@ -73,6 +106,22 @@ AVSampleBufferDisplayLayer* displayLayer;
     }
     
     return captureDevice;
+}
+
+-(void) initializeCompressionSession
+{
+    OSStatus err = noErr;
+    
+    err = VTCompressionSessionCreate(kCFAllocatorDefault, 1024,  576, kCMVideoCodecType_H264, NULL, NULL, NULL, &vtCallback, (__bridge void*) self, &compressionSession);
+    
+    if(err == noErr)
+    {
+        NSLog(@"Compression Session Create Success!");
+    }
+    else
+    {
+        NSLog(@"Compression Session Create Failed: %d", (int) err);
+    }
 }
 
 -(void) initializeVideoCaptureSession
@@ -139,6 +188,12 @@ AVSampleBufferDisplayLayer* displayLayer;
 {
     [captureSession startRunning];
     
+    // You must call flush when resuming!
+    if(displayLayer)
+    {
+        [displayLayer flushAndRemoveImage];
+    }
+    
     NSLog(@"Start Video Capture Session....");
 }
 
@@ -148,6 +203,33 @@ AVSampleBufferDisplayLayer* displayLayer;
     [displayLayer flushAndRemoveImage];
     
     NSLog(@"Stop Video Capture Session....");
+}
+
+void vtCallback(void *outputCallbackRefCon, void *sourceFrameRefCon, OSStatus status, VTEncodeInfoFlags infoFlags, CMSampleBufferRef sampleBuffer )
+{
+    double pts = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer));
+    
+    if(!timebaseSet && pts != 0)
+    {
+        timebaseSet = true;
+        
+        CMTimebaseRef controlTimebase;
+        CMTimebaseCreateWithMasterClock( CFAllocatorGetDefault(), CMClockGetHostTimeClock(), &controlTimebase );
+        
+        displayLayer.controlTimebase = controlTimebase;
+        CMTimebaseSetTime(displayLayer.controlTimebase, CMTimeMake(pts, 1));
+        CMTimebaseSetRate(displayLayer.controlTimebase, 1.0);
+    }
+    
+    
+    if([displayLayer isReadyForMoreMediaData])
+    {
+            [displayLayer enqueueSampleBuffer:sampleBuffer];
+    }
+    else
+    {
+            NSLog(@"Not Ready...");
+    }
 }
 
 @end
