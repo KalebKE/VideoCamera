@@ -1,4 +1,2 @@
 # VideoCamera
-AVSampleBufferDisplayLayer example displays video from the devices camera.
-
-Note: There is an issue with putting the application into the background and then resuming where AVSampleDisplayLayer will fail if it is not first reinitialized.
+AVSampleBufferDisplayLayer example displays video from the devices camera. An option exists to encode video locally before using AVSampleBufferDisplayLayer to decode, or not.
