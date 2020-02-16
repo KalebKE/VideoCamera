@@ -2,9 +2,6 @@
 //  VideoPlayer.m
 //  VideoCamera
 //
-//  Created by Churchill Navigation on 2/17/16.
-//  Copyright © 2016 Churchill Navigation. All rights reserved.
-//
 
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
